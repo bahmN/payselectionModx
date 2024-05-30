@@ -3,11 +3,12 @@
 /** @var xPDOSimpleObject $object */
 if ($object->xpdo) {
     /* @var modX $modx */
-    /** @var array $options */
+    $modx = &$transport->xpdo;
+
     switch ($options[xPDOTransport::PACKAGE_ACTION]) {
+
         case xPDOTransport::ACTION_INSTALL:
         case xPDOTransport::ACTION_UPGRADE:
-            $modx = &$transport->xpdo;
             $payment = $modx->getObject(msPayment::class, ['class' => 'Payselection']);
 
             if (!$payment) {
@@ -33,7 +34,6 @@ if ($object->xpdo) {
             break;
 
         case xPDOTransport::ACTION_UNINSTALL:
-            $modx = &$transport->xpdo;
             $miniShop2 = $modx->getService('minishop2');
             $miniShop2->removeService(
                 'payment',

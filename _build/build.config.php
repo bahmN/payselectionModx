@@ -6,9 +6,8 @@ define('PKG_NAME_LOWER', strtolower(PKG_NAME));
 
 const PKG_VERSION = '1.0.0';
 const PKG_RELEASE = 'pl';
-const PKG_AUTO_INSTALL = true;
+const PKG_AUTO_INSTALL = false;
 
-/* define paths */
 /* define paths */
 if (isset($_SERVER['MODX_BASE_PATH'])) {
     define('MODX_BASE_PATH', $_SERVER['MODX_BASE_PATH']);

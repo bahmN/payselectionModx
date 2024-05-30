@@ -66,7 +66,6 @@ if (defined('BUILD_SETTING_UPDATE')) {
     unset($settings, $setting, $attributes);
 }
 
-
 /* @var msPayment $payment */
 $payment = $modx->newObject(msPayment::class);
 $payment->fromArray(array(

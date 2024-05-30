@@ -1,7 +1,7 @@
---------------------
+-----------------------------------------------
 CMS MODX Revolution miniShop2 / mmsPayselection
---------------------
+-----------------------------------------------
 
-mmsPayselection модуль для ModX Revolution Minishop2
+Инструкция по настройке платежного модуля mmsPayselection для MODX Revolution Minishop2
 
 © Payselection
