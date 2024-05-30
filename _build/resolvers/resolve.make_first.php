@@ -1,5 +1,8 @@
 <?php
 
+/** @var xPDOTransport $transport */
+/** @var array $options */
+/** @var modX $modx */
 if ($transport->xpdo) {
     $modx = &$transport->xpdo;
     switch ($options[xPDOTransport::PACKAGE_ACTION]) {

@@ -1,218 +1,173 @@
 <?php
 
 /**
- *  Скрипт сборки платежного модуля Payselection
- * 
- * @package mmspayselection
+ * mmsPayselection build script
+ *
+ * @package payselection
+ * @subpackage build
  */
 
-$mTime = microtime();
-$mTime  = explode(' ', $mTime);
-$mTime  = $mTime[1] + $mTime[0];
-$timeStart = $mTime;
-
+$mtime = microtime();
+$mtime = explode(' ', $mtime);
+$mtime = $mtime[1] + $mtime[0];
+$tstart = $mtime;
 set_time_limit(0);
 
-define('PACKAGE_NAME', 'mmsPaysection');
-define('PACKAGE_NAME_LOWER', strtolower(PACKAGE_NAME));
-define('PACKAGE_VERSION', '1.0.0');
-define('PACKAGE_RELEASE', 'pl');
-define('PACKAGE_NAME_LOWER_MINISHOP', 'minishop2');
+require_once 'build.config.php';
 
-$root = dirname(dirname(__FILE__)) . '/';
-$path = array(
-    'root'                          => $root,
-    'docs'                          => $root . 'docs/',
-    'build'                         => $root . '_build/',
-    'data'                          => $root . '_build/data/',
-    'resolvers'                     => $root . '_build/resolvers/',
-    'chunks'                        => $root . 'core/components/' . PACKAGE_NAME_LOWER . '/elements/chunks/',
-    'snippets'                      => $root . 'core/components/' . PACKAGE_NAME_LOWER . '/elements/snippets/',
-    'plugins'                       => $root . 'core/components/' . PACKAGE_NAME_LOWER . '/elements/plugins/',
-    'source_assets'                 => $root . 'assets/components/' . PACKAGE_NAME_LOWER,
-    'source_core'                   => $root . 'core/components/' . PACKAGE_NAME_LOWER,
-    'payment_source_assets_files'   => [
-        'components/' . PACKAGE_NAME_LOWER_MINISHOP . '/payment/payselection.php'
-    ],
-    'payment_source_core_files'     => [
-        'components/' . PACKAGE_NAME_LOWER_MINISHOP . '/custom/payment/payselection.class.php',
-        'components/' . PACKAGE_NAME_LOWER_MINISHOP . '/lexicon/en/msp.payselection.inc.php',
-        'components/' . PACKAGE_NAME_LOWER_MINISHOP . '/lexicon/ru/msp.payselection.inc.php'
-    ]
+/* define sources */
+$root = dirname(__FILE__, 2) . '/';
+$sources = array(
+    'root' => $root,
+    'build' => $root . '_build/',
+    'data' => $root . '_build/data/',
+    'resolvers' => $root . '_build/resolvers/',
+    'source_assets' => array(
+        'components/minishop2/payment/payselection.php'
+    ),
+    'source_core' => array(
+        'components/minishop2/custom/payment/payselection.class.php',
+        'components/minishop2/lexicon/en/msp.payselection.inc.php',
+        'components/minishop2/lexicon/ru/msp.payselection.inc.php'
+    ),
+    'docs' => $root . 'docs/'
 );
-
-require_once $path['build'] . '/build.config.php';
 require_once MODX_CORE_PATH . 'model/modx/modx.class.php';
-require_once $path['build'] . '/includes/functions.php';
+require_once $sources['build'] . '/includes/functions.php';
 
 $modx = new modX();
 $modx->initialize('mgr');
-
-echo '<pre>';
-
+echo '<pre>'; /* used for nice formatting of log messages */
 $modx->setLogLevel(modX::LOG_LEVEL_INFO);
 $modx->setLogTarget('ECHO');
+
 $modx->loadClass('transport.modPackageBuilder', '', false, true);
 $builder = new modPackageBuilder($modx);
-$builder->createPackage(PACKAGE_NAME_LOWER, PACKAGE_VERSION, PACKAGE_RELEASE);
-$modx->log(modX::LOG_LEVEL_INFO, 'Created Transport Package.');
+$builder->createPackage(PKG_NAME_LOWER, PKG_VERSION, PKG_RELEASE);
+$modx->log(modX::LOG_LEVEL_INFO, 'Созданный транспортный пакет.');
 
-
-// Загрузка системных настроек
-$settings = include $source['data'] . 'transport.settings.php';
-if (!is_array($settings)) {
-    $modx->log(modX::LOG_LEVEL_ERROR, 'Could not package in settings.');
-} else {
-    $attributes = array(
-        xPDOTransport::UNIQUE_KEY    => 'key',
-        xPDOTransport::PRESERVE_KEYS => true,
-        xPDOTransport::UPDATE_OBJECT => BUILD_SETTING_UPDATE,
-    );
-    foreach ($settings as $setting) {
-        $vehicle = $builder->createVehicle($setting, $attributes);
-        $builder->putVehicle($vehicle);
+/* load system settings */
+if (defined('BUILD_SETTING_UPDATE')) {
+    $settings = include $sources['data'] . 'transport.settings.php';
+    if (!is_array($settings)) {
+        $modx->log(modX::LOG_LEVEL_ERROR, 'Не удалось выполнить упаковку в настройках.');
+    } else {
+        $attributes = array(
+            xPDOTransport::UNIQUE_KEY => 'key',
+            xPDOTransport::PRESERVE_KEYS => true,
+            xPDOTransport::UPDATE_OBJECT => BUILD_SETTING_UPDATE,
+        );
+        foreach ($settings as $setting) {
+            $vehicle = $builder->createVehicle($setting, $attributes);
+            $builder->putVehicle($vehicle);
+        }
+        $modx->log(modX::LOG_LEVEL_INFO, 'Упаковано ' . count($settings) . ' Системных настроек.');
     }
-    $modx->log(modX::LOG_LEVEL_INFO, 'Packaged in ' . count($settings) . ' System Settings.');
+    unset($settings, $setting, $attributes);
 }
 
-// Создадим категорию
-$modx->log(xPDO::LOG_LEVEL_INFO, 'Created category.');
-/** @var modCategory $category */
-$category = $modx->newObject('modCategory');
-$category->set('id', 1);
-$category->set('category', PACKAGE_NAME);
 
-// Добавим снипетты
-$snippets = include $sources['data'] . 'transport.snippets.php';
-if (!is_array($snippets)) {
-    $modx->log(modX::LOG_LEVEL_ERROR, 'Could not package in snippets.');
-} else {
-    $category->addMany($snippets);
-    $modx->log(modX::LOG_LEVEL_INFO, 'Packaged in ' . count($snippets) . ' snippets.');
-}
+/* @var msPayment $payment */
+$payment = $modx->newObject(msPayment::class);
+$payment->fromArray(array(
+    'name' => 'Payselection',
+    'active' => 1,
+    'class' => 'Payselection'
+));
 
-// Добавим чанки
-$chunks = include $sources['data'] . 'transport.chunks.php';
-if (!is_array($chunks)) {
-    $modx->log(modX::LOG_LEVEL_ERROR, 'Could not package in chunks.');
-} else {
-    $category->addMany($chunks);
-    $modx->log(modX::LOG_LEVEL_INFO, 'Packaged in ' . count($chunks) . ' chunks.');
-}
-
-// Добавим плагины
-$plugins = include $sources['data'] . 'transport.plugins.php';
-if (!is_array($plugins)) {
-    $modx->log(modX::LOG_LEVEL_ERROR, 'Could not package in plugins.');
-} else {
-    $category->addMany($plugins);
-    $modx->log(modX::LOG_LEVEL_INFO, 'Packaged in ' . count($plugins) . ' plugins.');
-}
-
-// Загрузим статусы
-$statuses = include $sources['data'] . 'transport.statuses.php';
-
-$attr = array(
-    xPDOTransport::UNIQUE_KEY                => 'category',
-    xPDOTransport::PRESERVE_KEYS             => false,
-    xPDOTransport::UPDATE_OBJECT             => true,
-    xPDOTransport::RELATED_OBJECTS           => true,
-    xPDOTransport::RELATED_OBJECT_ATTRIBUTES => array(
-        'Snippets' => array(
-            xPDOTransport::PRESERVE_KEYS     => false,
-            xPDOTransport::UPDATE_OBJECT     => BUILD_SNIPPET_UPDATE,
-            xPDOTransport::UNIQUE_KEY        => 'name',
-        ),
-        'Chunks' => array(
-            xPDOTransport::PRESERVE_KEYS     => false,
-            xPDOTransport::UPDATE_OBJECT     => BUILD_CHUNK_UPDATE,
-            xPDOTransport::UNIQUE_KEY        => 'name',
-        ),
-        'Plugins' => array(
-            xPDOTransport::PRESERVE_KEYS     => false,
-            xPDOTransport::UPDATE_OBJECT     => BUILD_PLUGIN_UPDATE,
-            xPDOTransport::UNIQUE_KEY        => 'name',
-        ),
-        'PluginEvents' => array(
-            xPDOTransport::PRESERVE_KEYS     => true,
-            xPDOTransport::UPDATE_OBJECT     => BUILD_EVENT_UPDATE,
-            xPDOTransport::UNIQUE_KEY        => array('pluginid', 'event'),
-        ),
-    ),
-);
-$vehicle = $builder->createVehicle($category, $attr);
-$builder->putVehicle($vehicle);
-
-// Создадим платежный метод
-$payment = $modx->newObject('msPayment');
-$payment->set('id', 1);
-$payment->set('name', 'Payselection');
-$payment->set('active', 1);
-$payment->set('class', 'Payselection');
-$payment->set('rank', 100);
-
+/* create payment vehicle */
 $attributes = array(
-    xPDOTransport::UNIQUE_KEY    => 'name',
+    xPDOTransport::UNIQUE_KEY => 'name',
     xPDOTransport::PRESERVE_KEYS => false,
     xPDOTransport::UPDATE_OBJECT => false
 );
 $vehicle = $builder->createVehicle($payment, $attributes);
+
 $modx->log(modX::LOG_LEVEL_INFO, 'Добавление средств распознавания файлов к платежу...');
-
-$vehicle->resolve('file', array(
-    'source' => $sources['source_core'],
-    'target' => "return MODX_CORE_PATH . 'components/';",
-));
-
-foreach ($sources['payment_source_assets_files'] as $file) {
+foreach ($sources['source_assets'] as $file) {
     $dir = dirname($file) . '/';
     $vehicle->resolve('file', array(
         'source' => $root . 'assets/' . $file,
         'target' => "return MODX_ASSETS_PATH . '{$dir}';",
     ));
 }
-foreach ($sources['payment_source_core_files'] as $file) {
+foreach ($sources['source_core'] as $file) {
     $dir = dirname($file) . '/';
     $vehicle->resolve('file', array(
         'source' => $root . 'core/' . $file,
         'target' => "return MODX_CORE_PATH . '{$dir}';"
     ));
 }
+unset($file, $attributes);
 
-$modx->log(modX::LOG_LEVEL_INFO, 'Добавление в PHP-преобразователи...');
+$resolvers = array('settings');
+foreach ($resolvers as $resolver) {
+    if ($vehicle->resolve('php', array('source' => $sources['resolvers'] . 'resolve.' . $resolver . '.php'))) {
+        $modx->log(modX::LOG_LEVEL_INFO, 'Добавлены распознователи"' . $resolver . '" в категорию.');
+    } else {
+        $modx->log(modX::LOG_LEVEL_INFO, 'Не удалось добавить распознаватель "' . $resolver . '" в категорию.');
+    }
+}
 
-$vehicle->resolve('php', array(
-    'source' => $sources['resolvers'] . 'resolve.make_first.php',
-));
+flush();
+$builder->putVehicle($vehicle);
 
-$vehicle->resolve('php', array(
-    'source' => $sources['resolvers'] . 'resolve.uninstall.php',
-));
-
-// Загрузим лицензии и README
+/* now pack in the license file, readme and setup options */
 $builder->setPackageAttributes(array(
-    'changelog'     => file_get_contents($sources['docs'] . 'changelog.txt'),
-    'license'       => file_get_contents($sources['docs'] . 'license.txt'),
-    'readme'        => file_get_contents($sources['docs'] . 'readme.txt'),
-    'statuses'      => $BUILD_STATUSES,
-    'setup-options' => array(
-        'source' => $sources['build'] . 'setup.options.php',
-    ),
+    'changelog' => file_get_contents($sources['docs'] . 'change.log'),
+    'readme' => file_get_contents($sources['docs'] . 'readme.txt')
 ));
-
 $modx->log(modX::LOG_LEVEL_INFO, 'Добавлены атрибуты пакета и параметры настройки.');
 
-/* Архивация */
-$modx->log(modX::LOG_LEVEL_INFO, 'Упаковка в транспортный архив...');
+/* zip up package */
+$modx->log(modX::LOG_LEVEL_INFO, 'Упаковка в zip-архив...');
 $builder->pack();
+$modx->log(modX::LOG_LEVEL_INFO, "\n<br>Zip-архив собран.</br>");
 
-$mTime     = microtime();
-$mTime     = explode(" ", $mTime);
-$mTime     = $mTime[1] + $mTime[0];
-$timeEnd      = $mTime;
-$totalTime = ($timeEnd - $timeStart);
+$mtime = microtime();
+$mtime = explode(" ", $mtime);
+$mtime = $mtime[1] + $mtime[0];
+$tend = $mtime;
+$totalTime = ($tend - $tstart);
 $totalTime = sprintf("%2.4f s", $totalTime);
 
-$modx->log(modX::LOG_LEVEL_INFO, "\n<br />Package Built.<br />\nExecution time: {$totalTime}\n");
+$signature = $builder->getSignature();
+if (defined('PKG_AUTO_INSTALL') && PKG_AUTO_INSTALL) {
+    $sig = explode('-', $signature);
+    $versionSignature = explode('.', $sig[1]);
 
-exit();
+    /* @var modTransportPackage $package */
+    if (!$package = $modx->getObject('transport.modTransportPackage', array('signature' => $signature))) {
+        $package = $modx->newObject('transport.modTransportPackage');
+        $package->set('signature', $signature);
+        $package->fromArray(array(
+            'created' => date('Y-m-d h:i:s'),
+            'updated' => null,
+            'state' => 1,
+            'workspace' => 1,
+            'provider' => 0,
+            'source' => $signature . '.transport.zip',
+            'package_name' => $sig[0],
+            'version_major' => $versionSignature[0],
+            'version_minor' => !empty($versionSignature[1]) ? $versionSignature[1] : 0,
+            'version_patch' => !empty($versionSignature[2]) ? $versionSignature[2] : 0,
+        ));
+        if (!empty($sig[2])) {
+            $r = preg_split('/([0-9]+)/', $sig[2], -1, PREG_SPLIT_DELIM_CAPTURE);
+            if (is_array($r) && !empty($r)) {
+                $package->set('release', $r[0]);
+                $package->set('release_index', (isset($r[1]) ? $r[1] : '0'));
+            } else {
+                $package->set('release', $sig[2]);
+            }
+        }
+        $package->save();
+    }
+    $package->install();
+}
+if (!empty($_GET['download'])) {
+    echo '<script>document.location.href = "/core/packages/' . $signature . '.transport.zip' . '";</script>';
+}
+
+$modx->log(modX::LOG_LEVEL_INFO, "\n<br />Execution time: {$totalTime}\n");
+echo '</pre>';
